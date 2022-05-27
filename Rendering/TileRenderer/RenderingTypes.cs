@@ -108,7 +108,7 @@ public struct GeoFeature : BaseShape
     public GeoFeature(ReadOnlySpan<Coordinate> c, MapFeatureData feature)
     {
         IsPolygon = feature.Type == GeometryType.Polygon;
-        var naturalKey = feature.Properties.FirstOrDefault(x => x.Key == "natural").Value;
+        var naturalKey = feature.Properties.FirstOrDefault(x => x.Key == KeyTypes.Natural).Value;
         Type = GeoFeatureType.Unknown;
         if (naturalKey != null)
         {
@@ -202,7 +202,7 @@ public struct PopulatedPlace : BaseShape
         for (var i = 0; i < c.Length; i++)
             ScreenCoordinates[i] = new PointF((float)MercatorProjection.lonToX(c[i].Longitude),
                 (float)MercatorProjection.latToY(c[i].Latitude));
-        var name = feature.Properties.FirstOrDefault(x => x.Key == "name").Value;
+        var name = feature.Properties.FirstOrDefault(x => x.Key == KeyTypes.Name).Value;
 
         if (feature.Label.IsEmpty)
         {
@@ -224,13 +224,9 @@ public struct PopulatedPlace : BaseShape
             return false;
         }
         foreach (var entry in feature.Properties)
-            if (entry.Key.StartsWith("place"))
+            if (entry.Key == KeyTypes.Place && Enum.TryParse<PopulatedType>(entry.Value, true, out var placeValues))
             {
-                if (entry.Value.StartsWith("city") || entry.Value.StartsWith("town") ||
-                    entry.Value.StartsWith("locality") || entry.Value.StartsWith("hamlet"))
-                {
-                    return true;
-                }
+                return true;
             }
         return false;
     }
@@ -264,14 +260,22 @@ public struct Border : BaseShape
         var foundLevel = false;
         foreach (var entry in feature.Properties)
         {
-            if (entry.Key.StartsWith("boundary") && entry.Value.StartsWith("administrative"))
+            switch (entry.Key)
             {
-                foundBoundary = true;
+                case KeyTypes.Boundary when Enum.TryParse<ValuesType>(entry.Value, true, out var boundaryValue):
+                    {
+                        if (boundaryValue == ValuesType.Administrative)
+                        {
+                            foundBoundary = true;
+                        }
+
+                        break;
+                    }
+                case KeyTypes.Admin_Level when entry.Value == "2":
+                    foundLevel = true;
+                    break;
             }
-            if (entry.Key.StartsWith("admin_level") && entry.Value == "2")
-            {
-                foundLevel = true;
-            }
+
             if (foundBoundary && foundLevel)
             {
                 break;
